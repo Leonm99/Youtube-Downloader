@@ -1,43 +1,68 @@
-import argparse
-from pytube import YouTube as yt
+from pytube import YouTube
+import pytube.request
+import customtkinter as ctk
+import tkinter
 
-VIDEO_SAVE_DIRECTORY = "./Videos"
-AUDIO_SAVE_DIRECTORY = "./Audio"
+# https://www.youtube.com/watch?v=Yw6u6YkTgQ4 short
+# https://www.youtube.com/watch?v=PJ0i8hkeabc middle
+# 9MB chunk size       1048576  1MB chunk size
+pytube.request.default_range_size = 2097152
 
 
-def download(video_url):
-    video = yt(video_url, use_oauth=True, allow_oauth_cache=True)
-    video = video.streams.get_highest_resolution()
-
+def startDownload():
     try:
-        video.download(VIDEO_SAVE_DIRECTORY)
-    except:
-        print("Failed to download video")
+        ytlink = link.get()
+        yt = YouTube(ytlink, on_progress_callback=on_progress)
+        video = yt.streams.get_highest_resolution()
 
-    print("video was downloaded successfully!")
-
-
-def download_audio(video_url):
-    video = yt(video_url, use_oauth=True, allow_oauth_cache=True)
-    audio = video.streams.filter(only_audio=True).first()
-
-    try:
-        audio.download(AUDIO_SAVE_DIRECTORY)
-    except:
-        print("Failed to download audio")
-
-    print("audio was downloaded successfully")
+        # title.configure(text=yt.title, text_color="white")
+        finishLabel.configure(text="")
+        video.download()
+        finishLabel.configure(text="Downloaded!")
+    except EOFError as err:
+        print(err)
+        finishLabel.configure(text="Error", text_color="red")
 
 
-if __name__ == "__main__":
-    ap = argparse.ArgumentParser()
-    ap.add_argument("-v", "--video", required=True,
-                    help="URL to youtube video")
-    ap.add_argument("-a", "--audio", required=False,
-                    help="audio only", action=argparse.BooleanOptionalAction)
-    args = vars(ap.parse_args())
+def on_progress(stream, chunk, bytes_remaining):
+    total_size = stream.filesize
+    bytes_downloaded = total_size - bytes_remaining
+    percentage_of_completion = bytes_downloaded / total_size * 100
+    per = str(int(percentage_of_completion))
+    pPercentage.configure(text=per + "%")
+    print(per)
+    pPercentage.update()
 
-    if args["audio"]:
-        download_audio(args["video"])
-    else:
-        download(args["video"])
+    progressBar.set(float(percentage_of_completion / 100))
+
+
+ctk.set_appearance_mode("System")
+ctk.set_default_color_theme("green")
+
+app = ctk.CTk()
+app.geometry("720x480")
+app.title("YouTube Downloader")
+
+
+title = ctk.CTkLabel(app, text="Insert YouTube link")
+title.pack(padx=10, pady=10)
+
+url_var = tkinter.StringVar()
+link = ctk.CTkEntry(app, width=350, height=40, textvariable=url_var)
+link.pack(padx=10, pady=10)
+
+finishLabel = ctk.CTkLabel(app, text="")
+finishLabel.pack()
+
+pPercentage = ctk.CTkLabel(app, text="0%")
+pPercentage.pack()
+
+progressBar = ctk.CTkProgressBar(app, width=400)
+progressBar.set(0)
+progressBar.pack(padx=10, pady=10)
+
+btn = ctk.CTkButton(app, text="Download", command=startDownload)
+btn.pack(padx=10, pady=10)
+
+
+app.mainloop()
