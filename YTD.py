@@ -1,10 +1,9 @@
 from pytube import YouTube
+from PIL import Image
+from io import BytesIO
 import pytube.request
 import customtkinter as ctk
-import tkinter
-from PIL import Image, ImageTk
 import urllib.request
-from io import BytesIO
 import threading
 
 
@@ -15,18 +14,18 @@ pytube.request.default_range_size = 2097152
 vid_link = " "
 last_link = " "
 
+# FUNCTIONS
+
 
 def download_video():
     vid_link = link.get()
     try:
-
-        ytlink = vid_link
-        yt = YouTube(ytlink, on_progress_callback=on_progress)
+        yt = YouTube(vid_link, on_progress_callback=on_progress)
         video = yt.streams.get_highest_resolution()
         video.download()
 
-    except EOFError as err:
-        print(err)
+    except Exception as e:
+        print(e)
 
 
 def on_progress(stream, chunk, bytes_remaining):
@@ -47,22 +46,26 @@ def is_yturl():
 
         print("is url")
 
-        ytlink = vid_link
-        yt = YouTube(ytlink)
+        yt = YouTube(vid_link)
 
         title.configure(text=yt.title)
 
         author.configure(text="by " + yt.author)
 
-        u = urllib.request.urlopen(yt.thumbnail_url)
-        raw_data = u.read()
-        u.close()
+        try:
+            u = urllib.request.urlopen(yt.thumbnail_url)
+            raw_data = u.read()
+            u.close()
 
-        im = Image.open(BytesIO(raw_data))
-        final_image = ctk.CTkImage(dark_image=im, size=(350, 197))
+            im = Image.open(BytesIO(raw_data))
+            final_image = ctk.CTkImage(dark_image=im, size=(350, 197))
 
-        thumbnail.configure(image=final_image)
-        thumbnail.image = final_image
+            thumbnail.configure(image=final_image)
+            thumbnail.image = final_image
+
+        except Exception as e:
+            print(e)
+
         return True
 
     else:
@@ -90,13 +93,13 @@ def start_download():
             target=download_video, name="download_thread")
         download_thread.start()
 
+# UI START
 
-ctk.set_appearance_mode("System")
 
 app = ctk.CTk()
 app.geometry("720x480")
 app.title("YouTube Downloader")
-
+ctk.set_appearance_mode("System")
 
 title = ctk.CTkLabel(app, font=("Roboto", 20), text="Insert YouTube link")
 title.pack(pady=(5, 0))
@@ -104,14 +107,11 @@ title.pack(pady=(5, 0))
 author = ctk.CTkLabel(app, font=("Roboto", 15), text="")
 author.pack()
 
-
 thumbnail = ctk.CTkLabel(app, text="")
 thumbnail.pack()
 
-
 link = ctk.CTkEntry(app, width=350, height=40, placeholder_text="Youtube URL")
 link.pack(pady=5)
-
 
 pPercentage = ctk.CTkLabel(app, text="")
 pPercentage.pack()
@@ -119,7 +119,6 @@ pPercentage.pack()
 progressBar = ctk.CTkProgressBar(app, width=400)
 progressBar.set(0)
 progressBar.pack()
-
 
 btn = ctk.CTkButton(app, fg_color="red", hover_color="darkred", font=("Roboto", 20),
                     text="Download", command=start_download, height=50)
