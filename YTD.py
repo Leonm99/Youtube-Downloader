@@ -1,14 +1,16 @@
 from pytube import YouTube
 from PIL import Image
 from io import BytesIO
+from textwrap import shorten
+from time import strftime
+from time import gmtime
 import pytube.request
 import customtkinter as ctk
 import urllib.request
 import threading
 
 
-# https://www.youtube.com/watch?v=Yw6u6YkTgQ4 short
-# 9MB chunk size       1048576  1MB chunk size
+# lower pytube download chunk size so the progressbar updates more frequent
 pytube.request.default_range_size = 2097152
 
 vid_link = " "
@@ -42,15 +44,18 @@ def on_progress(stream, chunk, bytes_remaining):
 
 def is_yturl():
     vid_link = link.get()
+
     if "https://www.youtube.com/watch?v=" in vid_link and len(vid_link) > 32:
 
         print("is url")
 
         yt = YouTube(vid_link)
 
-        title.configure(text=yt.title)
-
-        author.configure(text="by " + yt.author)
+        title.configure(text=shorten(yt.title, width=40))
+        author.configure(text="by: " + yt.author)
+        views.configure(text="views: " + str(yt.views))
+        duration.configure(text="duration: " +
+                           strftime("%H:%M:%S", gmtime(yt.length)))
 
         try:
             u = urllib.request.urlopen(yt.thumbnail_url)
@@ -98,32 +103,47 @@ def start_download():
 
 app = ctk.CTk()
 app.geometry("720x480")
+app.resizable(False, False)
 app.title("YouTube Downloader")
+app.grid_columnconfigure(0, minsize=350)
 ctk.set_appearance_mode("System")
 
-title = ctk.CTkLabel(app, font=("Roboto", 20), text="Insert YouTube link")
-title.pack(pady=(5, 0))
+placeholder_image = ctk.CTkImage(
+    Image.open("placeholder.png"), size=(350, 197))
+thumbnail = ctk.CTkLabel(app, text="", image=placeholder_image)
+thumbnail.grid(column=0, row=0, padx=5, pady=5)
 
-author = ctk.CTkLabel(app, font=("Roboto", 15), text="")
-author.pack()
 
-thumbnail = ctk.CTkLabel(app, text="")
-thumbnail.pack()
+video_info = ctk.CTkFrame(app, width=350)
+video_info.grid(column=1, row=0, sticky="nsew", padx=5, pady=5)
+video_info.grid_propagate(False)
+
+title = ctk.CTkLabel(video_info, font=("Roboto", 20), text="")
+title.grid(column=0, row=0, padx=5, pady=(5, 0), sticky="w")
+
+author = ctk.CTkLabel(video_info, font=("Roboto", 15), text="")
+author.grid(column=0, row=1, padx=5, sticky="w")
+
+views = ctk.CTkLabel(video_info, font=("Roboto", 15), text="")
+views.grid(column=0, row=2, padx=5, sticky="w")
+
+duration = ctk.CTkLabel(video_info, font=("Roboto", 15), text="")
+duration.grid(column=0, row=3, padx=5, sticky="w")
+
 
 link = ctk.CTkEntry(app, width=350, height=40, placeholder_text="Youtube URL")
-link.pack(pady=5)
-
-pPercentage = ctk.CTkLabel(app, text="")
-pPercentage.pack()
-
-progressBar = ctk.CTkProgressBar(app, width=400)
-progressBar.set(0)
-progressBar.pack()
+link.grid(column=0, row=2, columnspan=2, pady=(10, 0))
 
 btn = ctk.CTkButton(app, fg_color="red", hover_color="darkred", font=("Roboto", 20),
                     text="Download", command=start_download, height=50)
-btn.pack(padx=10, pady=10)
+btn.grid(column=0, row=3, columnspan=2, pady=(10, 0))
 
+pPercentage = ctk.CTkLabel(app, text="")
+pPercentage.grid(column=0, row=4, columnspan=2)
+
+progressBar = ctk.CTkProgressBar(app, width=300)
+progressBar.set(0)
+progressBar.grid(column=0, row=5, columnspan=2)
 
 app.after(2000, check_url)  # run this function again 2,000 ms from now
 app.mainloop()
