@@ -16,18 +16,37 @@ pytube.request.default_range_size = 2097152
 vid_link = " "
 last_link = " "
 
+VIDEO_SAVE_DIRECTORY = "./Videos"
+AUDIO_SAVE_DIRECTORY = "./Audio"
 # FUNCTIONS
+
+# Downloads the video and adds it to the download list afterwards
 
 
 def download_video():
     vid_link = link.get()
-    try:
-        yt = YouTube(vid_link, on_progress_callback=on_progress)
-        video = yt.streams.get_highest_resolution()
-        video.download()
+    if is_yturl():
 
-    except Exception as e:
-        print(e)
+        progressBar.grid(column=1, row=2, columnspan=2, pady=5)
+        pPercentage.grid(column=1, row=3, columnspan=2)
+
+        try:
+            yt = YouTube(vid_link, on_progress_callback=on_progress)
+            video = yt.streams.get_highest_resolution()
+            video.download(VIDEO_SAVE_DIRECTORY)
+
+            final_image = get_thumbnail(yt.thumbnail_url, 125, 70)
+
+            last_downloaded_video = ctk.CTkLabel(scrollable_frame, font=("Roboto", 20), text="  " + shorten(
+                yt.title, width=70) + " by: " + yt.author, image=final_image, compound='left')
+            last_downloaded_video.pack(padx=5, pady=5)
+
+            reset_after_download()
+
+        except Exception as e:
+            print(e)
+
+# Sets the current progress in the UI
 
 
 def on_progress(stream, chunk, bytes_remaining):
@@ -41,31 +60,25 @@ def on_progress(stream, chunk, bytes_remaining):
 
     progressBar.set(float(percentage_of_completion / 100))
 
+# CHecks if link is a usable YT link (this needs some refinement!)
+
 
 def is_yturl():
     vid_link = link.get()
 
-    if "https://www.youtube.com/watch?v=" in vid_link and len(vid_link) > 32:
+    if "https://www.youtube.com/watch?v=" in vid_link and len(vid_link) > 42:
 
         print("is url")
 
         yt = YouTube(vid_link)
 
-        title.configure(text=shorten(yt.title, width=40))
-        author.configure(text="by: " + yt.author)
-        views.configure(text="views: " + str(yt.views))
-        duration.configure(text="duration: " +
-                           strftime("%H:%M:%S", gmtime(yt.length)))
-
         try:
-            u = urllib.request.urlopen(yt.thumbnail_url)
-            raw_data = u.read()
-            u.close()
 
-            im = Image.open(BytesIO(raw_data))
-            final_image = ctk.CTkImage(dark_image=im, size=(350, 197))
+            final_image = get_thumbnail(yt.thumbnail_url, 350, 197)
 
-            thumbnail.configure(image=final_image)
+            thumbnail.configure(image=final_image, font=("Roboto", 20), compound='top',
+                                text=shorten(yt.title, width=70) + " by: " + yt.author + "\nduration: " +
+                                strftime("%H:%M:%S", gmtime(yt.length)) + " | views: " + f'{yt.views:,d}')
             thumbnail.image = final_image
 
         except Exception as e:
@@ -75,10 +88,13 @@ def is_yturl():
 
     else:
         print("not url")
+        thumbnail.configure(text="", image=placeholder_image)
         return False
 
+# Checks entry box
 
-def check_url():
+
+def check_entry():
     global vid_link
     global last_link
     vid_link = link.get()
@@ -87,10 +103,13 @@ def check_url():
         threading.Thread(target=is_yturl).start()
 
     last_link = vid_link
-    app.after(2000, check_url)
+    app.after(2000, check_entry)
+
+# Starts the download thread if not already started
 
 
 def start_download():
+
     thread_names = [t.name for t in threading.enumerate()]
 
     if "download_thread" not in thread_names:
@@ -98,52 +117,78 @@ def start_download():
             target=download_video, name="download_thread")
         download_thread.start()
 
+# Resets the state after download
+
+
+def reset_after_download():
+    thumbnail.configure(text="", image=placeholder_image)
+    progressBar.set(0)
+    progressBar.grid_forget()
+    pPercentage.configure(text="")
+    pPercentage.grid_forget()
+    link.delete(0, ctk.END)
+
+# Gets the thumbnail out of a link and returns it as a CTkImage
+
+
+def get_thumbnail(link, x, y):
+    u = urllib.request.urlopen(link)
+    raw_data = u.read()
+    u.close()
+
+    im = Image.open(BytesIO(raw_data))
+    final_image = ctk.CTkImage(dark_image=im, size=(x, y))
+
+    return final_image
+
+
 # UI START
-
-
 app = ctk.CTk()
-app.geometry("720x480")
+app.geometry("720x570")
 app.resizable(False, False)
 app.title("YouTube Downloader")
-app.grid_columnconfigure(0, minsize=350)
 ctk.set_appearance_mode("System")
 
+# Image to display when no video thumbnail is available
 placeholder_image = ctk.CTkImage(
     Image.open("placeholder.png"), size=(350, 197))
-thumbnail = ctk.CTkLabel(app, text="", image=placeholder_image)
-thumbnail.grid(column=0, row=0, padx=5, pady=5)
 
+# Frame for video info and progress indicators
+video_info_frame = ctk.CTkFrame(app)
+video_info_frame.grid(column=0, row=0,
+                      sticky="nsew", columnspan=2, padx=5, pady=5)
+video_info_frame.columnconfigure(2, weight=1)
 
-video_info = ctk.CTkFrame(app, width=350)
-video_info.grid(column=1, row=0, sticky="nsew", padx=5, pady=5)
-video_info.grid_propagate(False)
+thumbnail = ctk.CTkLabel(video_info_frame, text="", image=placeholder_image)
+thumbnail.grid(column=1, row=0, columnspan=2, padx=5, pady=5, sticky="nsew")
 
-title = ctk.CTkLabel(video_info, font=("Roboto", 20), text="")
-title.grid(column=0, row=0, padx=5, pady=(5, 0), sticky="w")
-
-author = ctk.CTkLabel(video_info, font=("Roboto", 15), text="")
-author.grid(column=0, row=1, padx=5, sticky="w")
-
-views = ctk.CTkLabel(video_info, font=("Roboto", 15), text="")
-views.grid(column=0, row=2, padx=5, sticky="w")
-
-duration = ctk.CTkLabel(video_info, font=("Roboto", 15), text="")
-duration.grid(column=0, row=3, padx=5, sticky="w")
-
-
-link = ctk.CTkEntry(app, width=350, height=40, placeholder_text="Youtube URL")
-link.grid(column=0, row=2, columnspan=2, pady=(10, 0))
-
-btn = ctk.CTkButton(app, fg_color="red", hover_color="darkred", font=("Roboto", 20),
-                    text="Download", command=start_download, height=50)
-btn.grid(column=0, row=3, columnspan=2, pady=(10, 0))
-
-pPercentage = ctk.CTkLabel(app, text="")
-pPercentage.grid(column=0, row=4, columnspan=2)
-
-progressBar = ctk.CTkProgressBar(app, width=300)
+pPercentage = ctk.CTkLabel(video_info_frame, text="")
+progressBar = ctk.CTkProgressBar(video_info_frame, width=300)
 progressBar.set(0)
-progressBar.grid(column=0, row=5, columnspan=2)
 
-app.after(2000, check_url)  # run this function again 2,000 ms from now
+
+# Frame for link entry and download button
+input_frame = ctk.CTkFrame(app)
+input_frame.grid(column=0, row=2, columnspan=2,
+                 sticky="nsew", padx=5, pady=5)
+input_frame.columnconfigure(3, weight=1)
+input_frame.rowconfigure(1, weight=1)
+
+link = ctk.CTkEntry(input_frame, width=550, height=40,
+                    placeholder_text="Youtube URL")
+link.grid(column=0, row=0, padx=5, pady=5)
+link.configure(justify="center")
+
+btn = ctk.CTkButton(input_frame, fg_color="red", hover_color="darkred", font=("Roboto", 20),
+                    text="Download", command=start_download, height=50)
+btn.grid(column=2, row=0, padx=5, pady=5, sticky="e")
+
+
+# Frame for download list
+scrollable_frame = ctk.CTkScrollableFrame(app, label_text="Downloaded:")
+scrollable_frame.grid(column=0, row=3, columnspan=2,
+                      sticky="nsew", padx=5, pady=5)
+
+
+app.after(2000, check_entry)  # run this function again 2,000 ms from now
 app.mainloop()
