@@ -2,3 +2,4 @@ pytube
 customtkinter
 Pillow
 urllib
+ffmpeg-python
