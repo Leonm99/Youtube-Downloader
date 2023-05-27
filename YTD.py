@@ -25,6 +25,7 @@ vid_link = " "
 last_link = " "
 resolutions = ("2160p", "1440p", "1080p", "720p", "480p", "360p", "240p", "144p")
 paddings = {"padx": 5, "pady": 5}
+sticky = {"sticky": "nsew"}
 VIDEO_SAVE_DIRECTORY = "./Videos/"
 AUDIO_SAVE_DIRECTORY = "./Audio/"
 
@@ -36,43 +37,35 @@ class App(ctk.CTk):
         # ---------------- UI -------------------
 
         self.geometry("700x630")
+        self.minsize(width=700, height=630)
         # self.resizable(False, False)
         self.title("YouTube Downloader")
         ctk.set_appearance_mode("System")
+        self.rowconfigure(0, weight=1)
+        self.columnconfigure(0, weight=1)
 
         # Image to display when no video thumbnail is available
         self.placeholder_image = ctk.CTkImage(
             Image.open("placeholder.png"), size=(350, 197)
         )
 
-        # Frame with tabs
-        self.tabview = ctk.CTkTabview(
-            self,
-            segmented_button_selected_color="#ff0000",
-            segmented_button_selected_hover_color="darkred",
-        )
-        self.tabview.grid(row=0, column=0, sticky="nsew", **paddings)
-        self.tabview.add("Videos")
-        self.tabview.add("Playlists")
-
         # Frame for video info and progress indicators
-        self.video_info_frame = ctk.CTkFrame(self.tabview.tab("Videos"))
+        self.video_info_frame = ctk.CTkFrame(self, width=350, height=197)
         self.video_info_frame.columnconfigure(2, weight=1)
-        self.video_info_frame.grid(column=0, row=0, **paddings, sticky="nsew")
-
+        self.video_info_frame.grid(column=0, row=0, **paddings, **sticky)
         self.console = ctk.CTkTextbox(
-            self.tabview.tab("Videos"),
+            self,
             wrap="word",
             state="disabled",
             font=("Lucida Console", 12),
         )
-        self.console.grid(column=1, row=0, **paddings, sticky="nsew")
+        self.console.grid(column=1, row=0, **paddings, **sticky)
 
         # Label that holds thumbnail and video info
         self.thumbnail = ctk.CTkLabel(
             self.video_info_frame, text="", image=self.placeholder_image
         )
-        self.thumbnail.grid(column=2, row=0, columnspan=2, **paddings, sticky="nsew")
+        self.thumbnail.grid(column=2, row=0, columnspan=2, **paddings, **sticky)
 
         # Label that shows download percentage
         self.pPercentage = ctk.CTkLabel(self.video_info_frame, text="")
@@ -81,20 +74,22 @@ class App(ctk.CTk):
         self.progressBar.set(0)
 
         # Frame for link entry and download button
-        self.input_frame = ctk.CTkFrame(self.tabview.tab("Videos"))
-        self.input_frame.grid(column=0, row=2, columnspan=2, sticky="nsew", **paddings)
-        self.input_frame.columnconfigure(3, weight=1)
-        self.input_frame.rowconfigure(1, weight=1)
+        self.input_frame = ctk.CTkFrame(self)
+        self.input_frame.grid(column=0, row=2, columnspan=2, **paddings, **sticky)
+        self.input_frame.columnconfigure(2, weight=1)
+        self.input_frame.rowconfigure(0, weight=1)
 
-        # Entry box for youtube link
-        self.link = ctk.CTkEntry(
+        # Button that starts download
+        self.btn = ctk.CTkButton(
             self.input_frame,
-            width=350,
-            height=40,
-            placeholder_text="Enter Youtube URL first!",
+            fg_color="#ff0000",
+            hover_color="darkred",
+            font=("Roboto", 20),
+            text="Download",
+            command=self.download_button_pressed,
+            height=50,
         )
-        self.link.grid(column=0, row=0, **paddings)
-        self.link.configure(justify="center")
+        self.btn.grid(column=0, row=0, **paddings, **sticky)
 
         # Dropdown to choose resolution of video
         self.option_menu = ctk.CTkOptionMenu(
@@ -109,25 +104,21 @@ class App(ctk.CTk):
         self.option_menu.grid(column=1, row=0, **paddings)
         self.option_menu.configure(anchor="center")
 
-        # Button that starts download
-        self.btn = ctk.CTkButton(
+        # Entry box for youtube link
+        self.link = ctk.CTkEntry(
             self.input_frame,
-            fg_color="#ff0000",
-            hover_color="darkred",
-            font=("Roboto", 20),
-            text="Download",
-            command=self.download_button_pressed,
-            height=50,
+            width=350,
+            height=40,
+            placeholder_text="Enter Youtube URL first!",
         )
-        self.btn.grid(column=2, row=0, **paddings, sticky="e")
+        self.link.grid(column=2, row=0, **paddings, **sticky)
+        self.link.configure(justify="center")
 
         # Frame for download list
         self.scrollable_frame = ctk.CTkScrollableFrame(
-            self.tabview.tab("Videos"), label_text="Last downloaded:"
+            self, label_text="Last downloaded:"
         )
-        self.scrollable_frame.grid(
-            column=0, row=3, columnspan=2, sticky="nsew", **paddings
-        )
+        self.scrollable_frame.grid(column=0, row=3, columnspan=2, **paddings, **sticky)
 
     # ---------------- FUNCTIONS -------------------
 
@@ -203,17 +194,11 @@ class App(ctk.CTk):
 
     def check_resolutions(self, streams):
         self.option_menu.configure(values="")
-        temp_list = []
-        for i in resolutions:
-            if i in str(streams):
-                temp_list.append(
-                    i
-                    + " - "
-                    + str(
-                        round(streams.filter(res=i).first().filesize / 1024 / 1024, 1)
-                    )
-                    + "MB"
-                )
+        temp_list = [
+            f"{i} - {str(round(streams.filter(res=i).first().filesize / 1024 / 1024, 1))}MB"
+            for i in resolutions
+            if i in str(streams)
+        ]
         self.option_menu.configure(values=temp_list)
         self.option_menu.set(temp_list[0])
 
@@ -260,6 +245,7 @@ class App(ctk.CTk):
         if self.is_yturl(vid_link):
             self.progressBar.grid(column=1, row=2, columnspan=2, pady=5)
             self.pPercentage.grid(column=1, row=3, columnspan=2)
+
             yt = YouTube(vid_link, on_progress_callback=self.on_progress)
             filtered_streams = yt.streams.filter(
                 res=self.option_menu.get().split(" ")[0]
@@ -285,12 +271,26 @@ class App(ctk.CTk):
         )
 
         self.write_info("Downloading video...")
-        filtered_streams.first().download(VIDEO_SAVE_DIRECTORY, filename="temp_vid.mp4")
+        t1 = threading.Thread(
+            target=filtered_streams.first().download(
+                VIDEO_SAVE_DIRECTORY, filename="temp_vid.mp4"
+            ),
+            name="download_video_thread",
+        )
 
         self.write_info("Downloading audio...")
-        yt.streams.get_audio_only().download(
-            AUDIO_SAVE_DIRECTORY, filename="temp_aud.mp4"
+        t2 = threading.Thread(
+            target=yt.streams.get_audio_only().download(
+                AUDIO_SAVE_DIRECTORY, filename="temp_aud.mp4"
+            ),
+            name="download_audio_thread",
         )
+
+        t1.start()
+        t2.start()
+
+        t1.join()
+        t2.join()
 
         video_stream = ffmpeg.input(f"{VIDEO_SAVE_DIRECTORY}temp_vid.mp4")
         audio_stream = ffmpeg.input(f"{AUDIO_SAVE_DIRECTORY}temp_aud.mp4")

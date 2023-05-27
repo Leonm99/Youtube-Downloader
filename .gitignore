@@ -1,3 +1,4 @@
 /.vscode
 /Audio
 /Videos
+import customtkinter as ctk.py
